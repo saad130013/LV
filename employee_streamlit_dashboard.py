@@ -7,7 +7,7 @@ st.set_page_config(page_title="لوحة حضور الموظفين", layout="wide
 # تحميل البيانات مع تخطي الصفوف العلوية
 @st.cache_data
 def load_data():
-    df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name="Table3", skiprows=6)
+    df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name="Table 3", skiprows=6)
     df.columns = df.columns.str.strip()
     return df
 
