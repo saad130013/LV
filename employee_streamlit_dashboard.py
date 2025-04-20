@@ -15,10 +15,19 @@ def load_data():
     for sheet in ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6"]:
         try:
             df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name=sheet, skiprows=6, na_filter=False)
+            
+            # معالجة أسماء الأعمدة لإزالة المسافات الزائدة والرموز
             df.columns = df.columns.str.strip().str.replace('\n', ' ')
+            
+            # إعادة تسمية الأعمدة باستخدام columns_mapping
             df = df.rename(columns=columns_mapping).dropna(how='all')
+            
+            # ضمان فرادة أسماء الأعمدة
+            df.columns = pd.io.parsers.base_parser.ParserBase.uniqueify_columns(df.columns)
+            
             # معالجة القيم الخاصة (مثل NaN) قبل حفظ الجدول
             df = df.fillna('')
+            
             sheets[sheet] = df
         except Exception as e:
             st.error(f"خطأ في تحميل {sheet}: {str(e)}")
