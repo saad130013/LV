@@ -15,17 +15,15 @@ def load_data():
     
     for sheet in ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6"]:
         try:
-            # تحميل البيانات مع تخطي الصفوف الفارغة ومعالجة الأعمدة المكررة
+            # تحميل البيانات مع تخطي الصفوف الفارغة
             df = pd.read_excel(
                 "DUTY ROSTER MAR 2025.V.2.xlsx",
                 sheet_name=sheet,
                 skiprows=6,
-                na_filter=False,
-                header=0
-            ).rename(columns=lambda x: x.strip() if isinstance(x, str) else x)
+                na_filter=False
+            )
             
             # تنظيف الأعمدة وإعادة تسميتها
-            df = df.loc[:, ~df.columns.duplicated()]  # إزالة الأعمدة المكررة
             df.columns = df.columns.str.strip().str.replace('\n', ' ')
             df = df.rename(columns=columns_mapping).dropna(how='all')
             
@@ -47,31 +45,27 @@ if query.strip():
     
     with st.spinner("جاري البحث في السجلات..."):
         for sheet_name, df in all_sheets.items():
-            try:
-                # البحث في جميع الأعمدة النصية
-                mask = df.astype(str).apply(
-                    lambda col: col.str.contains(query.strip(), case=False, regex=False)
-                ).any(axis=1)
-                
-                matched_data = df[mask]
-                
-                if not matched_data.empty:
-                    st.subheader(f"📑 النتائج من جدول: {sheet_name}")
-                    st.dataframe(
-                        matched_data,
-                        use_container_width=True,
-                        column_config={
-                            "employee_id": "رقم الموظف",
-                            "name": "الاسم الكامل",
-                            "nationality": "الجنسية",
-                            "position": "المسمى الوظيفي"
-                        }
-                    )
-                    results_found = True
-            except KeyError as ke:
-                st.error(f"عمود غير موجود: {ke} - يرجى التحقق من تنسيق الملف")
-            except Exception as e:
-                st.error(f"خطأ أثناء البحث في {sheet_name}: {str(e)}")
+            # البحث في جميع الأعمدة النصية
+            mask = df.apply(
+                lambda col: col.astype(str).apply(
+                    lambda x: x.str.contains(query, case=False, regex=False)
+            ).any(axis=1)
+            
+            matched_data = df[mask]
+            
+            if not matched_data.empty:
+                st.subheader(f"📑 النتائج من جدول: {sheet_name}")
+                st.dataframe(
+                    matched_data,
+                    use_container_width=True,
+                    column_config={
+                        "employee_id": "رقم الموظف",
+                        "name": "الاسم الكامل",
+                        "nationality": "الجنسية",
+                        "position": "المسمى الوظيفي"
+                    }
+                )
+                results_found = True
 
     if not results_found:
         st.warning("⚠️ لم يتم العثور على نتائج مطابقة", icon="⚠️")
@@ -96,5 +90,5 @@ with st.sidebar:
     """)
     
     st.divider()
-    st.markdown("**الإصدار: 2.0.0**")
+    st.markdown("**الإصدار: 1.2.0**")
     st.caption("تم التطوير بواسطة الفريق التقني - 2024")
