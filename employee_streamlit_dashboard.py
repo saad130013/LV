@@ -15,44 +15,32 @@ def load_data():
     
     for sheet in ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6"]:
         try:
-            # تحميل البيانات مع تخطي الصفوف الفارغة
-            df = pd.read_excel(
-                "DUTY ROSTER MAR 2025.V.2.xlsx",
-                sheet_name=sheet,
-                skiprows=6,
-                na_filter=False
-            )
-            
-            # تنظيف الأعمدة وإعادة تسميتها
+            df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name=sheet, skiprows=6, na_filter=False)
             df.columns = df.columns.str.strip().str.replace('\n', ' ')
             df = df.rename(columns=columns_mapping).dropna(how='all')
-            
             sheets[sheet] = df.fillna('')
         except Exception as e:
             st.error(f"خطأ في تحميل {sheet}: {str(e)}")
     return sheets
 
-# تكوين واجهة المستخدم
 st.set_page_config(layout="wide", page_title="نظام البحث عن الموظف")
 st.title("🔍 نظام البحث عن الموظف")
 
-# شريط البحث
 query = st.text_input("🔎 أدخل اسم الموظف، رقم الموظف، أو أي بيانات أخرى", help="يمكنك البحث بأي جزء من المعلومات")
 
 if query.strip():
     all_sheets = load_data()
     results_found = False
-    
+
     with st.spinner("جاري البحث في السجلات..."):
         for sheet_name, df in all_sheets.items():
-            # البحث في جميع الأعمدة النصية
             mask = df.apply(
-                lambda col: col.astype(str).apply(
-                    lambda x: x.str.contains(query, case=False, regex=False)
+                lambda col: col.astype(str).str.contains(query, case=False, regex=False),
+                axis=0
             ).any(axis=1)
-            
+
             matched_data = df[mask]
-            
+
             if not matched_data.empty:
                 st.subheader(f"📑 النتائج من جدول: {sheet_name}")
                 st.dataframe(
@@ -72,23 +60,16 @@ if query.strip():
 else:
     st.info("ℹ️ الرجاء إدخال كلمة البحث لبدء البحث", icon="ℹ️")
 
-# إضافة دليل الاستخدام في الشريط الجانبي
 with st.sidebar:
-    st.header("دليل الاستخدام")
+    st.header("📘 دليل الاستخدام")
     st.markdown("""
-    1. **طريقة البحث**:
-        - ابحث باستخدام أي جزء من البيانات (الاسم، الرقم الوظيفي، الموقع...)
-        - البحث غير حساس لحالة الأحرف
-        
-    2. **المتطلبات**:
-        - ملف Excel بنفس الهيكلية المحددة
-        - تثبيت الحزم: `streamlit`, `pandas`, `openpyxl`
-        
-    3. **معلومات تقنية**:
-        - يدعم البحث في 6 جداول مختلفة
-        - يعالج المشاكل الشائعة في تنسيق البيانات
-    """)
+    **طريقة الاستخدام:**
+    - أدخل أي جزء من بيانات الموظف (الاسم، الرقم، الجنسية...)
+    - يبحث البرنامج تلقائيًا في جميع الجداول
     
-    st.divider()
-    st.markdown("**الإصدار: 1.2.0**")
-    st.caption("تم التطوير بواسطة الفريق التقني - 2024")
+    **المتطلبات:**
+    - نفس تنسيق ملف Excel الموجود
+    
+    **الإصدار:** 1.2.0  
+    **تم التطوير بواسطة:** الفريق التقني - 2024
+    """)
