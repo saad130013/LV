@@ -8,6 +8,9 @@ st.set_page_config(page_title="لوحة حضور الموظفين", layout="wide
 @st.cache_data
 def load_data():
     df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name="Table 3", skiprows=6)
+df.columns = df.columns.str.strip()  # إزالة الفراغات من أسماء الأعمدة
+st.write("🧾 الأعمدة المتوفرة:", df.columns.tolist())
+
     df.columns = df.columns.str.strip()
     return df
 
