@@ -1,99 +1,76 @@
-
 import streamlit as st
 import pandas as pd
 
-def unique_columns(df):
-    cols = pd.Series(df.columns)
-    for dup in cols[cols.duplicated()].unique():
-        cnt = 1
-        for idx in cols[cols == dup].index:
-            cols[idx] = f"{dup}_{cnt}"
-            cnt += 1
-    return cols.values
-
 @st.cache_data
 def load_data():
-    sheets = {}
-    columns_mapping = {
-        'رقم الموظف': 'employee_id',
-        'الاسم': 'name',
-        'الجنسية': 'nationality',
-        'الموقع': 'location',
-        'الوظيفة': 'position',
-        'القسم': 'department'
-    }
+    # تحميل البيانات مع معالجة الأعمدة
+    df = pd.read_excel("duty_roster_mar_2025.xlsx", engine="openpyxl")
     
-    for sheet in ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6"]:
-        try:
-            df = pd.read_excel(
-                "DUTY ROSTER MAR 2025.V.2.xlsx",
-                sheet_name=sheet,
-                skiprows=6,
-                na_filter=False,
-                header=0
-            )
-            df.columns = df.columns.str.strip().str.replace('\n', ' ')
-            df.columns = unique_columns(df)
-            df = df.rename(columns=lambda x: columns_mapping.get(x.strip(), x))
-            df = df.dropna(how='all')
-            df = df.fillna('')
-            sheets[sheet] = df
-        except Exception as e:
-            st.error(f"خطأ في تحميل {sheet}: {str(e)}")
-    return sheets
+    # تحويل الأعمدة النصية إلى strings وتنظيفها
+    text_columns = ['ID#', 'Name']
+    for col in text_columns:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+    
+    return df
 
-st.set_page_config(layout="wide", page_title="نظام البحث عن الموظف")
+def search_employee(df, query, by="id"):
+    query = str(query).strip().lower()
+    
+    try:
+        if by == "id":
+            # البحث في عمود ID بعد التحويل إلى string
+            return df[df["ID#"].astype(str).str.lower().str.contains(query, na=False)]
+        else:
+            # البحث في عمود الاسم بعد التحويل إلى string
+            return df[df["Name"].astype(str).str.lower().str.contains(query, na=False)]
+    except Exception as e:
+        st.error(f"خطأ في البحث: {str(e)}")
+        return pd.DataFrame()
+
+# واجهة المستخدم
 st.title("🔍 نظام البحث عن الموظف")
 
-query = st.text_input("🔍 أدخل اسم الموظف، رقم الموظف، أو أي بيانات أخرى", help="يمكنك البحث بأي جزء من المعلومات")
+search_type = st.radio("نوع البحث", ["بالاسم", "برقم الموظف"], horizontal=True)
+query = st.text_input("👤 أدخل اسم الموظف أو رقم الموظف", help="يمكنك استخدام أي جزء من المعلومات")
 
-if query.strip():
-    all_sheets = load_data()
-    results_found = False
-    search_value = str(query).strip()
-
+if query:
+    df = load_data()
+    
     with st.spinner("جاري البحث في السجلات..."):
-        for sheet_name, df in all_sheets.items():
-            try:
-                mask = df.astype(str).apply(
-                    lambda row: row.str.contains(search_value, case=False, na=False)
-                ).any(axis=1)
+        if search_type == "بالاسم":
+            result = search_employee(df, query, by="name")
+        else:
+            result = search_employee(df, query, by="id")
 
-                matched_data = df[mask]
-                if not matched_data.empty:
-                    st.subheader(f"📑 النتائج من جدول: {sheet_name}")
-                    st.dataframe(
-                        matched_data,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "employee_id": "رقم الموظف",
-                            "name": "الاسم",
-                            "nationality": "الجنسية"
-                        }
-                    )
-                    results_found = True
-            except Exception as e:
-                st.error(f"خطأ في معالجة {sheet_name}: {str(e)}")
+    if not result.empty:
+        st.success(f"✅ تم العثور على {len(result)} نتيجة مطابقة")
+        # عرض النتائج مع تهيئة الأعمدة
+        st.dataframe(
+            result[['ID#', 'Name', 'Department']],
+            use_container_width=True,
+            column_config={
+                "ID#": "رقم الموظف",
+                "Name": "الاسم",
+                "Department": "القسم"
+            }
+        )
+    else:
+        st.warning("⚠️ لا توجد نتائج مطابقة")
 
-    if not results_found:
-        st.warning("⚠️ لم يتم العثور على نتائج مطابقة", icon="⚠️")
-else:
-    st.info("ℹ️ الرجاء إدخال كلمة البحث لبدء البحث", icon="ℹ️")
-
+# دليل الاستخدام في الشريط الجانبي
 with st.sidebar:
     st.header("📘 دليل الاستخدام")
     st.markdown("""
     **طريقة الاستخدام:**
-    1. أدخل أي جزء من بيانات الموظف (اسم، رقم، جنسية...)
-    2. سيتم البحث تلقائيًا في جميع الجداول
+    1. اختر نوع البحث (بالاسم أو بالرقم)
+    2. أدخل أي جزء من المعلومات
+    3. سيتم عرض النتائج تلقائيًا
 
-    **المتطلبات:**
+    **ملاحظات:**
     - يجب أن يكون ملف Excel بنفس التنسيق المحدد
-    - التأكد من وجود الجداول من Table 1 إلى Table 6
-
-    **الإصدار:** 2.1.0  
-    **آخر تحديث:** 2024
+    - يدعم البحث الجزئي (يمكنك إدخال جزء من الاسم أو الرقم)
+    - البحث غير حساس لحالة الأحرف
+    
+    **الإصدار:** 2.2.0
     """)
-    st.divider()
-    st.markdown("**التطوير:** الفريق التقني")
