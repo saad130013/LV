@@ -1,100 +1,94 @@
-# employee_streamlit_dashboard.py
 import streamlit as st
 import pandas as pd
 
 @st.cache_data
 def load_data():
-    """تحميل البيانات من جميع الجداول مع معالجة الأخطاء"""
     sheets = {}
-    sheet_names = [
-        "Table 1", 
-        "Table 2", 
-        "Table 3", 
-        "Table 4", 
-        "Table 5", 
-        "Table 6"
-    ]
+    columns_mapping = {
+        'رقم الموظف': 'employee_id',
+        'الاسم': 'name',
+        'الجنسية': 'nationality',
+        'الموقع': 'location',
+        'الوظيفة': 'position',
+        'القسم': 'department'
+    }
     
-    for sheet in sheet_names:
+    for sheet in ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6"]:
         try:
-            # تحميل البيانات مع تخطي العناوين غير الضرورية
+            # تحميل البيانات مع تخطي الصفوف الفارغة
             df = pd.read_excel(
                 "DUTY ROSTER MAR 2025.V.2.xlsx",
                 sheet_name=sheet,
                 skiprows=6,
-                engine='openpyxl'  # ضروري لقراءة ملفات Excel الحديثة
+                na_filter=False
             )
             
-            # تنظيف أسماء الأعمدة
-            df.columns = (
-                df.columns
-                .astype(str)
-                .str.strip()
-                .str.replace("#", "")
-                .str.replace(" ", "")
-                .str.replace("/", "_")
-            )
+            # تنظيف الأعمدة وإعادة تسميتها
+            df.columns = df.columns.str.strip().str.replace('\n', ' ')
+            df = df.rename(columns=columns_mapping).dropna(how='all')
             
-            sheets[sheet] = df
-            
+            sheets[sheet] = df.fillna('')
         except Exception as e:
-            st.warning(f"⚠️ تعذر تحميل الجدول '{sheet}': {str(e)}")
-    
+            st.error(f"خطأ في تحميل {sheet}: {str(e)}")
     return sheets
 
-# إعداد واجهة المستخدم
-st.set_page_config(layout="wide", page_title="نظام إدارة الموظفين")
-st.title("🔍 نظام البحث عن الموظفين")
+# تكوين واجهة المستخدم
+st.set_page_config(layout="wide", page_title="نظام البحث عن الموظف")
+st.title("🔍 نظام البحث عن الموظف")
 
-# حقل إدخال البحث
-query = st.text_input("🧑‍💼 أدخل اسم الموظف أو رقمه أو أي بيانات أخرى")
+# شريط البحث
+query = st.text_input("🔎 أدخل اسم الموظف، رقم الموظف، أو أي بيانات أخرى", help="يمكنك البحث بأي جزء من المعلومات")
 
-if query:
+if query.strip():
     all_sheets = load_data()
     results_found = False
     
-    for sheet_name, df in all_sheets.items():
-        try:
-            # البحث في جميع الأعمدة
-            df_str = df.astype(str)
-            mask = df_str.apply(
-                lambda col: col.str.contains(query.strip(), case=False, na=False)
+    with st.spinner("جاري البحث في السجلات..."):
+        for sheet_name, df in all_sheets.items():
+            # البحث في جميع الأعمدة النصية
+            mask = df.apply(
+                lambda col: col.astype(str).apply(
+                    lambda x: x.str.contains(query, case=False, regex=False)
             ).any(axis=1)
             
-            results = df[mask]
+            matched_data = df[mask]
             
-            if not results.empty:
-                st.subheader(f"📋 النتائج من جدول: {sheet_name}")
-                st.dataframe(results)
+            if not matched_data.empty:
+                st.subheader(f"📑 النتائج من جدول: {sheet_name}")
+                st.dataframe(
+                    matched_data,
+                    use_container_width=True,
+                    column_config={
+                        "employee_id": "رقم الموظف",
+                        "name": "الاسم الكامل",
+                        "nationality": "الجنسية",
+                        "position": "المسمى الوظيفي"
+                    }
+                )
                 results_found = True
-                
-        except Exception as e:
-            st.error(f"❌ خطأ في معالجة الجدول '{sheet_name}': {str(e)}")
-    
+
     if not results_found:
-        st.warning("⚠️ لا توجد نتائج مطابقة في أي جدول")
+        st.warning("⚠️ لم يتم العثور على نتائج مطابقة", icon="⚠️")
 else:
-    st.info("🗒️ يرجى إدخال كلمة البحث في الحقل أعلاه")
+    st.info("ℹ️ الرجاء إدخال كلمة البحث لبدء البحث", icon="ℹ️")
 
-# شريط جانبي للتعليمات
-st.sidebar.markdown("""
-### 🧭 دليل الاستخدام
-1. **تأكد من**:
-   - وجود الملف `DUTY ROSTER MAR 2025.V.2.xlsx` في نفس المجلد
-   - تثبيت المكتبات المطلوبة (`pandas`, `streamlit`, `openpyxl`)
-
-2. **خيارات البحث**:
-   - يمكن البحث بأي جزء من البيانات (أسماء، أرقام، مواقع...)
-   - البحث غير حساس لحالة الأحرف (Aa)
-
-3. **معلومات تقنية**:
-   - يدعم البحث في 6 جداول مختلفة
-   - يعالج المشاكل الشائعة في تنسيق البيانات
-""")
-
-# إشعار حقوق النشر
-st.sidebar.markdown("---")
-st.sidebar.caption("""
-تم تطويره بواسطة [اسمك] - 2024  
-الإصدار 1.1.0 | [دليل الاستخدام الكامل](https://github.com/yourusername/employee-search-system)
-""")
+# إضافة دليل الاستخدام في الشريط الجانبي
+with st.sidebar:
+    st.header("دليل الاستخدام")
+    st.markdown("""
+    1. **طريقة البحث**:
+        - ابحث باستخدام أي جزء من البيانات (الاسم، الرقم الوظيفي، الموقع...)
+        - البحث غير حساس لحالة الأحرف
+        
+    2. **المتطلبات**:
+        - ملف Excel بنفس الهيكلية المحددة
+        - تثبيت الحزم: `streamlit`, `pandas`, `openpyxl`
+        
+    3. **معلومات تقنية**:
+        - يدعم البحث في 6 جداول مختلفة
+        - يعالج المشاكل الشائعة في تنسيق البيانات
+    """)
+    
+    st.divider()
+    st.markdown("**الإصدار: 1.2.0**")
+    st.caption("تم التطوير بواسطة الفريق التقني - 2024")
