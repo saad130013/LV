@@ -43,16 +43,7 @@ if query.strip():
 
             if not matched_data.empty:
                 st.subheader(f"📑 النتائج من جدول: {sheet_name}")
-                st.dataframe(
-                    matched_data,
-                    use_container_width=True,
-                    column_config={
-                        "employee_id": "رقم الموظف",
-                        "name": "الاسم الكامل",
-                        "nationality": "الجنسية",
-                        "position": "المسمى الوظيفي"
-                    }
-                )
+                st.dataframe(matched_data.astype(str), use_container_width=True)
                 results_found = True
 
     if not results_found:
