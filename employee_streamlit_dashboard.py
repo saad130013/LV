@@ -17,7 +17,9 @@ def load_data():
             df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name=sheet, skiprows=6, na_filter=False)
             df.columns = df.columns.str.strip().str.replace('\n', ' ')
             df = df.rename(columns=columns_mapping).dropna(how='all')
-            sheets[sheet] = df.fillna('')
+            # معالجة القيم الخاصة (مثل NaN) قبل حفظ الجدول
+            df = df.fillna('')
+            sheets[sheet] = df
         except Exception as e:
             st.error(f"خطأ في تحميل {sheet}: {str(e)}")
     return sheets
@@ -32,15 +34,21 @@ if query.strip():
     results_found = False
     with st.spinner("جاري البحث في السجلات ..."):
         for sheet_name, df in all_sheets.items():
-            mask = df.apply(
-                lambda col: col.astype(str).str.contains(query, case=False, regex=False),
-                axis=0
-            ).any(axis=1)
-            matched_data = df[mask]
-            if not matched_data.empty:
-                st.subheader(f"📑 النتائج من جدول: {sheet_name}")
-                st.dataframe(matched_data.astype(str), use_container_width=True)
-                results_found = True
+            try:
+                # تأكد من أن جميع الأعمدة تحتوي على قيم صالحة قبل البحث
+                mask = df.apply(
+                    lambda col: col.astype(str).str.contains(query, case=False, regex=False),
+                    axis=0
+                ).any(axis=1)
+                matched_data = df[mask]
+                if not matched_data.empty:
+                    st.subheader(f"📑 النتائج من جدول: {sheet_name}")
+                    # معالجة القيم الخاصة قبل تحويل الأعمدة إلى سلاسل نصية
+                    matched_data = matched_data.fillna('').astype(str)
+                    st.dataframe(matched_data, use_container_width=True)
+                    results_found = True
+            except Exception as e:
+                st.error(f"خطأ عند معالجة الجدول {sheet_name}: {str(e)}")
     if not results_found:
         st.warning("⚠️ لم يتم العثور على نتائج مطابقة", icon="⚠️")
 else:
