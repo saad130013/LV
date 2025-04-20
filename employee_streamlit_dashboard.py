@@ -2,56 +2,54 @@
 import streamlit as st
 import pandas as pd
 
-# إعداد الصفحة
-st.set_page_config(page_title="نظام البحث عن الموظفين", layout="wide")
-st.title("🔍 نظام إدارة دوام الموظفين")
+st.set_page_config(page_title="لوحة حضور الموظفين", layout="wide")
 
-# تحميل البيانات
+# تحميل البيانات مع تخطي الصفوف العلوية
 @st.cache_data
 def load_data():
-    return pd.read_excel("duty_roster_mar_2025.xlsx", engine="openpyxl")
+    df = pd.read_excel("DUTY ROSTER MAR 2025.V.2.xlsx", sheet_name="Table3", skiprows=6)
+    df.columns = df.columns.str.strip()
+    return df
 
 df = load_data()
 
 # واجهة البحث
-st.sidebar.header("🧭 بحث")
-search_type = st.sidebar.radio("نوع البحث", ["🔢 برقم الهوية", "🔤 بالاسم"])
-query = st.sidebar.text_input("🔍 أدخل القيمة للبحث")
+st.title("🔎 نظام البحث عن الموظف")
 
-# نتيجة البحث
+query = st.text_input("👨‍💼 الاسم أو رقم الموظف")
+
 if query:
-    if search_type == "🔢 برقم الهوية":
-        result = df[df["ID#"].astype(str).str.contains(query.strip(), case=False, na=False)]
-    else:
-        result = df[df["Name"].astype(str).str.contains(query.strip(), case=False, na=False)]
-
+    # البحث بحسب الاسم أو الرقم
+    result = df[
+        df["ID#"].astype(str).str.contains(query.strip(), case=False, na=False) |
+        df["EMP#"].astype(str).str.contains(query.strip(), case=False, na=False) |
+        df["NAME"].astype(str).str.contains(query.strip(), case=False, na=False)
+    ]
     if not result.empty:
-        st.success(f"✅ تم العثور على {len(result)} نتيجة")
         for _, row in result.iterrows():
             st.markdown("---")
-            st.markdown(f"### 👤 {row['Name']} | 🆔 {row['ID#']}")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.info(f"**الوظيفة:** {row.get('POSITION', 'غير محددة')}")
-                st.info(f"**الشركة:** {row.get('COMPANY', 'غير مسجلة')}")
-            with col2:
-                st.info(f"**الجنسية:** {row.get('NATIONALITY', '-')}")
-                st.info(f"**الموقع:** {row.get('LOCATION', '-')}")
-            
-            # إحصائيات الحضور
-            week_days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
-            presence = [int(row[day]) if pd.notna(row[day]) else 0 for day in week_days]
-            total_present = sum(presence)
-            attendance_percent = round((total_present / len(week_days)) * 100)
+            st.subheader(f"👤 {row['NAME']}")
+            st.write(f"🪪 رقم الهوية: `{row['ID#']}`")
+            st.write(f"🏷️ رقم الموظف: `{row['EMP#']}`")
+            st.write(f"🏢 الشركة: `{row['COMPANY']}`")
+            st.write(f"🧑‍💼 الوظيفة: `{row['POSITION']}`")
+            st.write(f"📍 الموقع: `{row['LOCATION']}`")
 
-            st.metric("📈 نسبة الحضور الأسبوعي", f"{attendance_percent} %")
-            if attendance_percent < 50:
-                st.error("🚨 نسبة الحضور منخفضة جدًا!")
-            elif attendance_percent < 80:
-                st.warning("⚠️ الحضور أقل من المتوقع.")
+            st.write("📊 جدول الحضور الأسبوعي:")
+            week_df = pd.DataFrame({
+                "اليوم": ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
+                "الحالة": [row["SUN"], row["MON"], row["TUE"], row["WED"], row["THU"], row["FRI"], row["SAT"]]
+            })
+            st.dataframe(week_df, use_container_width=True)
+
+            attended_days = sum([row["SUN"], row["MON"], row["TUE"], row["WED"], row["THU"]])
+            total_days = 5
+            percentage = round((attended_days / total_days) * 100, 2)
+
+            if percentage >= 75:
+                st.success(f"✅ نسبة الحضور: {percentage}%")
             else:
-                st.success("✅ حضور ممتاز هذا الأسبوع.")
+                st.warning(f"⚠️ نسبة الحضور منخفضة: {percentage}%")
+
     else:
-        st.warning("🚫 لا توجد نتائج مطابقة.")
-else:
-    st.info("👈 ابدأ بإدخال رقم أو اسم الموظف من القائمة الجانبية.")
+        st.warning("❌ لا توجد نتائج مطابقة.")
